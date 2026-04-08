@@ -1,0 +1,65 @@
+name: sysconfig
+description: >
+    SysConfig - Linux Server Configuration Agent Environment.
+    An AI agent must correctly configure simulated Linux servers by reading
+    the current (broken/incomplete) state and issuing shell-like configuration
+    commands to match target requirements. Tests infrastructure reasoning,
+    system administration knowledge, and multi-step planning.
+
+version: "1.0.0"
+
+env_class: "env:SysConfigEnv"
+
+action_space:
+    type: text
+    description: >
+        Shell-like commands to configure the server. Supported commands:
+        - useradd <username> [--groups <g1,g2>] [--shell <shell>] [--no-login]
+        - userdel <username>
+        - usermod <username> [--groups <g1,g2>] [--shell <shell>] [--no-login]
+        - passwd <username> --set-policy <policy>
+        - chmod <permissions> <path>
+        - chown <user>:<group> <path>
+        - firewall allow|deny|remove <port>/<protocol> [--from <source>]
+        - service enable|disable|start|stop|restart <service_name>
+        - cron add|remove <user> <schedule> <command>
+        - sshd set <key> <value>
+        - env set|unset <key> [<value>]
+        - sysctl set <key> <value>
+        - apt install|remove <package>
+        - log enable|disable <log_type>
+
+observation_space:
+    type: json
+    description: >
+        JSON object representing the current server state including:
+        users, groups, firewall_rules, services, cron_jobs, ssh_config,
+        environment_variables, file_permissions, sysctl_params,
+        installed_packages, logging_config.
+
+tasks:
+    - id: basic_webserver
+      name: "Basic Web Server Setup"
+      difficulty: easy
+      description: >
+          Set up a basic web server: create a dedicated user, configure firewall
+          for HTTP/HTTPS traffic, enable nginx, and set correct file permissions
+          on the web root directory.
+
+    - id: multi_service
+      name: "Multi-Service Configuration"
+      difficulty: medium
+      description: >
+          Configure a web application stack with nginx, PostgreSQL, and Redis.
+          Set up proper user isolation between services, configure firewall
+          rules for inter-service communication, set environment variables,
+          and configure service-specific permissions.
+
+    - id: security_hardening
+      name: "Security Hardening"
+      difficulty: hard
+      description: >
+          Audit and harden a misconfigured production server. Fix overly
+          permissive firewall rules, disable root SSH login, remove
+          unauthorized cron jobs, fix file permissions, configure proper
+          logging, and apply security-focused sysctl parameters.
