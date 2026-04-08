@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SysConfig — Linux Server Configuration Environment</title>
+<meta name="description" content="AI agent environment for Linux server configuration. Interactive demo.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e1a; --bg2: #111827; --card: #1a1f35; --card-h: #1f2545;
+  --term-bg: #0d1117; --text: #e2e8f0; --text2: #94a3b8; --muted: #64748b;
+  --accent: #6366f1; --accent-g: rgba(99,102,241,0.25);
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316; --cyan: #06b6d4;
+  --border: rgba(148,163,184,0.1); --border-a: rgba(99,102,241,0.3);
+  --grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+body::before { content:''; position:fixed; inset:0; background: radial-gradient(800px 600px at 20% 20%, rgba(99,102,241,0.07) 0%, transparent 70%), radial-gradient(600px 400px at 80% 80%, rgba(6,182,212,0.05) 0%, transparent 70%); pointer-events:none; z-index:0; }
+.container { max-width:1200px; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+
+/* Header */
+header { padding:20px 0; border-bottom:1px solid var(--border); backdrop-filter:blur(20px); position:sticky; top:0; z-index:100; background:rgba(10,14,26,0.9); }
+.hdr { display:flex; align-items:center; justify-content:space-between; }
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-i { width:40px; height:40px; background:var(--grad); border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:19px; box-shadow:0 4px 20px var(--accent-g); }
+.logo-t { font-size:21px; font-weight:700; background:var(--grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.badge { font-size:11px; background:rgba(99,102,241,0.15); color:var(--accent); padding:3px 10px; border-radius:20px; font-weight:600; border:1px solid var(--border-a); }
+.hdr-btns { display:flex; gap:10px; }
+.btn { padding:9px 18px; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; border:none; transition:all 0.2s; font-family:'Inter',sans-serif; }
+.btn-p { background:var(--grad); color:#fff; box-shadow:0 4px 15px var(--accent-g); }
+.btn-p:hover { transform:translateY(-1px); box-shadow:0 6px 25px var(--accent-g); }
+.btn-g { background:rgba(148,163,184,0.08); color:var(--text2); border:1px solid var(--border); }
+.btn-g:hover { background:rgba(148,163,184,0.15); color:var(--text); }
+
+/* Hero */
+.hero { padding:70px 0 50px; text-align:center; }
+.hero h1 { font-size:48px; font-weight:800; line-height:1.1; margin-bottom:18px; letter-spacing:-1px; }
+.hero h1 .gr { background:var(--grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.hero p { font-size:17px; color:var(--text2); max-width:620px; margin:0 auto 32px; line-height:1.7; }
+.badges { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:36px; }
+.hb { padding:5px 14px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid var(--border); background:var(--card); }
+.hb.g { color:var(--green); border-color:rgba(34,197,94,0.3); }
+.hb.c { color:var(--cyan); border-color:rgba(6,182,212,0.3); }
+.hb.o { color:var(--orange); border-color:rgba(249,115,22,0.3); }
+
+/* Tasks */
+.stitle { font-size:30px; font-weight:700; margin-bottom:10px; letter-spacing:-0.5px; }
+.ssub { color:var(--text2); font-size:15px; margin-bottom:32px; }
+.tgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-bottom:50px; }
+.tcard { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.tcard::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--grad); opacity:0; transition:opacity 0.3s; }
+.tcard:hover { background:var(--card-h); border-color:var(--border-a); transform:translateY(-3px); box-shadow:0 10px 35px rgba(0,0,0,0.3); }
+.tcard:hover::before,.tcard.active::before { opacity:1; }
+.tcard.active { border-color:var(--accent); box-shadow:0 0 25px var(--accent-g); }
+.td { display:inline-block; padding:3px 9px; border-radius:6px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; }
+.td-e { background:rgba(34,197,94,0.15); color:var(--green); }
+.td-m { background:rgba(234,179,8,0.15); color:var(--yellow); }
+.td-h { background:rgba(239,68,68,0.15); color:var(--red); }
+.tcard h3 { font-size:17px; font-weight:700; margin-bottom:7px; }
+.tcard p { font-size:13px; color:var(--text2); line-height:1.6; }
+.ts { margin-top:12px; font-size:12px; color:var(--muted); }
+
+/* Demo */
+.demo { margin-bottom:50px; }
+.dpanel { display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--card); }
+.dleft { border-right:1px solid var(--border); display:flex; flex-direction:column; }
+.dright { display:flex; flex-direction:column; }
+.phdr { padding:14px 18px; border-bottom:1px solid var(--border); font-size:13px; font-weight:600; color:var(--text2); display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.2); }
+.pdot { width:8px; height:8px; border-radius:50%; background:var(--accent); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* Terminal */
+.term { font-family:'JetBrains Mono',monospace; font-size:13px; background:var(--term-bg); padding:18px; flex:1; min-height:360px; max-height:480px; overflow-y:auto; line-height:1.8; }
+.term::-webkit-scrollbar { width:5px; } .term::-webkit-scrollbar-track { background:transparent; } .term::-webkit-scrollbar-thumb { background:rgba(148,163,184,0.2); border-radius:3px; }
+.tl { display:flex; gap:8px; animation:fi 0.3s ease; }
+@keyframes fi { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+.tp { color:var(--green); } .tc { color:var(--text); } .tr { color:var(--cyan); padding-left:18px; }
+.te { color:var(--red); padding-left:18px; } .ti { color:var(--muted); } .tsc { color:var(--yellow); font-weight:600; }
+.ci { display:flex; border-top:1px solid var(--border); background:rgba(0,0,0,0.3); }
+#ci { flex:1; background:transparent; border:none; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:13px; padding:12px 18px; outline:none; }
+#ci::placeholder { color:var(--muted); }
+.cs { padding:12px 18px; background:transparent; border:none; color:var(--accent); cursor:pointer; font-size:13px; font-family:'Inter',sans-serif; font-weight:600; }
+.cs:hover { color:#818cf8; }
+
+/* State */
+.sv { font-family:'JetBrains Mono',monospace; font-size:12px; background:var(--term-bg); padding:18px; flex:1; min-height:360px; max-height:480px; overflow-y:auto; line-height:1.7; color:var(--text2); }
+.sv::-webkit-scrollbar { width:5px; } .sv::-webkit-scrollbar-track { background:transparent; } .sv::-webkit-scrollbar-thumb { background:rgba(148,163,184,0.2); border-radius:3px; }
+.ss { margin-bottom:14px; } .sl { color:var(--accent); font-weight:600; margin-bottom:3px; }
+.si { padding-left:10px; color:var(--text2); } .si.ok { color:var(--green); } .si.w { color:var(--yellow); }
+
+/* Score */
+.sbc { padding:14px 18px; border-top:1px solid var(--border); background:rgba(0,0,0,0.2); }
+.sh { display:flex; justify-content:space-between; margin-bottom:7px; font-size:12px; }
+.sbl { color:var(--muted); } .sbv { color:var(--green); font-weight:700; font-family:'JetBrains Mono',monospace; }
+.stk { height:8px; background:rgba(148,163,184,0.1); border-radius:4px; overflow:hidden; }
+.sf { height:100%; background:var(--grad); border-radius:4px; transition:width 0.6s cubic-bezier(0.16,1,0.3,1); box-shadow:0 0 12px var(--accent-g); }
+
+/* API */
+.asec { margin-bottom:50px; }
+.agrid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+.ac { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px; transition:border-color 0.2s; }
+.ac:hover { border-color:var(--border-a); }
+.am { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; padding:3px 7px; border-radius:4px; margin-right:7px; }
+.mg { background:rgba(34,197,94,0.15); color:var(--green); } .mp { background:rgba(99,102,241,0.15); color:var(--accent); }
+.ap { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; }
+.ad { margin-top:7px; font-size:13px; color:var(--text2); }
+.ae { margin-top:9px; font-family:'JetBrains Mono',monospace; font-size:11px; background:var(--term-bg); padding:9px 12px; border-radius:7px; color:var(--muted); overflow-x:auto; }
+
+/* Commands */
+.cmdref { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; font-family:'JetBrains Mono',monospace; font-size:12px; line-height:2.2; color:var(--text2); margin-bottom:50px; }
+
+footer { padding:36px 0; border-top:1px solid var(--border); text-align:center; color:var(--muted); font-size:13px; }
+footer a { color:var(--accent); text-decoration:none; }
+
+@media(max-width:768px) {
+  .hero h1{font-size:30px} .tgrid{grid-template-columns:1fr} .dpanel{grid-template-columns:1fr}
+  .dleft{border-right:none;border-bottom:1px solid var(--border)} .agrid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header><div class="container hdr">
+  <div class="logo">
+    <div class="logo-i">🖥️</div>
+    <span class="logo-t">SysConfig</span>
+    <span class="badge">OpenEnv v1.0</span>
+  </div>
+  <div class="hdr-btns">
+    <a href="/docs" target="_blank"><button class="btn btn-g">API Docs</button></a>
+    <button class="btn btn-p" onclick="resetEnv()">Launch Demo</button>
+  </div>
+</div></header>
+
+<main>
+<section class="hero"><div class="container">
+  <h1>Linux Server Config<br><span class="gr">Agent Environment</span></h1>
+  <p>An OpenEnv-compatible environment that challenges AI agents to configure simulated Linux servers through shell-like commands. Test sysadmin reasoning, security hardening, and multi-step planning.</p>
+  <div class="badges">
+    <span class="hb g">✓ 3 Difficulty Levels</span>
+    <span class="hb c">✓ 14 Command Types</span>
+    <span class="hb o">✓ Partial-Credit Grading</span>
+  </div>
+</div></section>
+
+<section class="container" style="margin-bottom: 50px;">
+  <h2 class="stitle">About This Project</h2>
+  <p class="ssub">Designed for Autonomous AI Agents and Reinforcement Learning</p>
+  <div style="background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; color:var(--text2); line-height: 1.8; font-size: 15px;">
+    <p style="margin-bottom: 16px;"><strong>1. The Human Playground (This UI):</strong> This web interface lets researchers manually test the environment, understand the scoring mechanics, and establish human baselines. It wraps the core environment logic but requires no API keys to play.</p>
+    <p style="margin-bottom: 16px;"><strong>2. LLM Agent Evaluation:</strong> AI agents do not see this frontend. Instead, you point your agent's code (like our <code style="background:var(--term-bg); padding:3px 6px; border-radius:4px; font-family:'JetBrains Mono',monospace; color:var(--accent); font-size:13px;">inference.py</code> script) at the internal API endpoints. The agent issues shell commands via JSON and processes the structured JSON state returned by the server.</p>
+    <p><strong>3. Reinforcement Learning (RL):</strong> For massive scale RL training, you bypass this web server entirely. Simply import the native Python environment directly into your PyTorch/JAX training loop (<code style="background:var(--term-bg); padding:3px 6px; border-radius:4px; font-family:'JetBrains Mono',monospace; color:var(--accent); font-size:13px;">from env import SysConfigEnv</code>) for maximum speed.</p>
+  </div>
+</section>
+
+<section class="container">
+  <h2 class="stitle">Choose a Task</h2>
+  <p class="ssub">Select a configuration challenge and try it in the interactive terminal below</p>
+  <div class="tgrid">
+    <div class="tcard active" onclick="selTask('basic_webserver',this)">
+      <span class="td td-e">Easy</span>
+      <h3>Basic Web Server</h3>
+      <p>Set up nginx with proper users, firewall rules for HTTP/HTTPS, and correct file permissions on the web root.</p>
+      <div class="ts">Max 15 steps</div>
+    </div>
+    <div class="tcard" onclick="selTask('multi_service',this)">
+      <span class="td td-m">Medium</span>
+      <h3>Multi-Service Stack</h3>
+      <p>Configure nginx + PostgreSQL + Redis with user isolation, firewall rules, env vars, and service permissions.</p>
+      <div class="ts">Max 35 steps</div>
+    </div>
+    <div class="tcard" onclick="selTask('security_hardening',this)">
+      <span class="td td-h">Hard</span>
+      <h3>Security Hardening</h3>
+      <p>Audit and fix 10+ security issues: exposed ports, insecure services, weak SSH config, suspicious crons.</p>
+      <div class="ts">Max 50 steps</div>
+    </div>
+  </div>
+</section>
+
+<section class="container demo">
+  <h2 class="stitle">Interactive Demo</h2>
+  <p class="ssub">Type shell commands to configure the server. See the state update in real-time.</p>
+  <div class="dpanel">
+    <div class="dleft">
+      <div class="phdr">
+        <div class="pdot"></div>Terminal — <span id="ctl">basic_webserver</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="sc">Step 0/15</span>
+      </div>
+      <div class="term" id="term">
+        <div class="tl"><span class="ti">Welcome to SysConfig. Click "Launch Demo" or select a task to begin.</span></div>
+      </div>
+      <div class="ci">
+        <input type="text" id="ci" placeholder='Type a command... (e.g. useradd www-data --no-login)' onkeydown="if(event.key==='Enter')sendCmd()">
+        <button class="cs" onclick="sendCmd()">Send ▶</button>
+      </div>
+    </div>
+    <div class="dright">
+      <div class="phdr"><div class="pdot" style="background:var(--cyan)"></div>Server State</div>
+      <div class="sv" id="sv"><div class="ti">Reset a task first to see the server state.</div></div>
+      <div class="sbc">
+        <div class="sh"><span class="sbl">Progress Score</span><span class="sbv" id="sd">0.0%</span></div>
+        <div class="stk"><div class="sf" id="sfl" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container asec">
+  <h2 class="stitle">API Reference</h2>
+  <p class="ssub">Integrate with your AI agent using these REST endpoints</p>
+  <div class="agrid">
+    <div class="ac"><span class="am mp">POST</span><span class="ap">/reset</span><div class="ad">Reset environment with a task</div><div class="ae">{"task_id": "basic_webserver"}</div></div>
+    <div class="ac"><span class="am mp">POST</span><span class="ap">/step</span><div class="ad">Execute a configuration action</div><div class="ae">{"action": "useradd www-data --no-login"}</div></div>
+    <div class="ac"><span class="am mg">GET</span><span class="ap">/state</span><div class="ad">Get the current server state as JSON</div><div class="ae">Returns full server state observation</div></div>
+    <div class="ac"><span class="am mg">GET</span><span class="ap">/grade</span><div class="ad">Get reward score (0.0 — 1.0)</div><div class="ae">{"score": 0.85, "steps_taken": 7}</div></div>
+    <div class="ac"><span class="am mg">GET</span><span class="ap">/tasks</span><div class="ad">List all available tasks</div><div class="ae">Returns 3 tasks with difficulty</div></div>
+    <div class="ac"><span class="am mg">GET</span><span class="ap">/health</span><div class="ad">Health check endpoint</div><div class="ae">{"status": "ok", "environment": "sysconfig"}</div></div>
+  </div>
+</section>
+
+<section class="container">
+  <h2 class="stitle">Command Reference</h2>
+  <p class="ssub">14 shell-like commands your agent can use</p>
+  <div class="cmdref">
+    <span style="color:var(--green)">useradd</span> &lt;user&gt; [--groups g1,g2] [--shell /bin/bash] [--no-login]<br>
+    <span style="color:var(--green)">userdel</span> &lt;user&gt;<br>
+    <span style="color:var(--green)">usermod</span> &lt;user&gt; [--groups g1,g2] [--shell sh] [--no-login]<br>
+    <span style="color:var(--green)">passwd</span> &lt;user&gt; --set-policy &lt;policy&gt;<br>
+    <span style="color:var(--cyan)">chmod</span> &lt;mode&gt; &lt;path&gt;<br>
+    <span style="color:var(--cyan)">chown</span> &lt;user&gt;:&lt;group&gt; &lt;path&gt;<br>
+    <span style="color:var(--orange)">firewall</span> allow|deny|remove &lt;port&gt;/&lt;tcp|udp&gt; [--from &lt;source&gt;]<br>
+    <span style="color:var(--yellow)">service</span> enable|disable|start|stop|restart &lt;name&gt;<br>
+    <span style="color:var(--yellow)">cron</span> add|remove &lt;user&gt; &lt;schedule&gt; &lt;command&gt;<br>
+    <span style="color:var(--accent)">sshd</span> set &lt;key&gt; &lt;value&gt;<br>
+    <span style="color:var(--accent)">env</span> set|unset &lt;key&gt; [&lt;value&gt;]<br>
+    <span style="color:var(--accent)">sysctl</span> set &lt;key&gt; &lt;value&gt;<br>
+    <span style="color:var(--cyan)">apt</span> install|remove &lt;package&gt;<br>
+    <span style="color:var(--cyan)">log</span> enable|disable &lt;auth|syslog|access|error|audit&gt;
+  </div>
+</section>
+</main>
+
+<footer><div class="container">
+  <p>SysConfig Environment — OpenEnv Spec v1.0 · Built for AI Agent Evaluation</p>
+  <p style="margin-top:8px"><a href="/docs">API Docs</a> · <a href="/tasks">Tasks</a> · <a href="/state">State</a></p>
+</div></footer>
+
+<script>
+let curTask='basic_webserver';
+function selTask(t,el){document.querySelectorAll('.tcard').forEach(c=>c.classList.remove('active'));el.classList.add('active');curTask=t;resetEnv();}
+
+async function resetEnv(){
+  const T=document.getElementById('term');T.innerHTML='';
+  add('ti','Resetting environment: '+curTask+'...');
+  try{
+    const r=await fetch('/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:curTask})});
+    const d=await r.json();
+    document.getElementById('ctl').textContent=curTask;
+    document.getElementById('sc').textContent='Step 0/'+d.max_steps;
+    add('tr','✓ Task loaded: '+d.task.name);
+    add('ti','Difficulty: '+d.task.difficulty+' | Max steps: '+d.max_steps);
+    add('ti','');add('ti',d.task.description);add('ti','');
+    add('ti','Type commands below to configure the server. ↵');
+    updState(d.server_state);updScore(0);
+  }catch(e){add('te','Error: '+e.message);}
+}
+
+async function sendCmd(){
+  const inp=document.getElementById('ci'),cmd=inp.value.trim();if(!cmd)return;inp.value='';
+  add('tp','❯ '+cmd);
+  try{
+    const r=await fetch('/step',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:cmd})});
+    if(!r.ok){const e=await r.json();add('te','Error: '+e.detail);return;}
+    const d=await r.json(),ar=d.info?.action_result||{};
+    ar.success?add('tr','✓ '+ar.message):add('te','✗ '+ar.message);
+    updScore(d.reward||0);
+    const o=d.observation||{};
+    document.getElementById('sc').textContent='Step '+(o.steps_taken||'?')+'/'+(o.max_steps||'?');
+    if(o.server_state)updState(o.server_state);
+    if(d.done){add('ti','');d.reward>=0.95?add('tsc','🎉 TASK COMPLETE! Score: '+(d.reward*100).toFixed(1)+'%'):add('tsc','⏱ Max steps. Score: '+(d.reward*100).toFixed(1)+'%');}
+  }catch(e){add('te','Network error: '+e.message);}
+}
+
+function add(cls,txt){const T=document.getElementById('term'),l=document.createElement('div');l.className='tl';l.innerHTML='<span class="'+cls+'">'+esc(txt)+'</span>';T.appendChild(l);T.scrollTop=T.scrollHeight;}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function updScore(s){
+  const p=(s*100).toFixed(1);
+  document.getElementById('sd').textContent=p+'%';
+  document.getElementById('sfl').style.width=p+'%';
+  document.getElementById('sd').style.color=s>=0.95?'var(--green)':s>=0.5?'var(--yellow)':'var(--text2)';
+}
+
+function updState(st){
+  const v=document.getElementById('sv');let h='';
+  h+='<div class="ss"><div class="sl">👤 Users ('+((st.users||[]).length)+')</div>';
+  (st.users||[]).forEach(u=>{h+='<div class="si">'+u.name+' ['+((u.groups||[]).join(','))+'] '+u.shell+(u.has_login?'':' (no-login)')+'</div>';});h+='</div>';
+  h+='<div class="ss"><div class="sl">🔥 Firewall ('+((st.firewall_rules||[]).length)+')</div>';
+  (st.firewall_rules||[]).forEach(r=>{h+='<div class="si ok">'+r.action.toUpperCase()+' '+r.port+'/'+r.protocol+' from '+r.source+'</div>';});
+  if(!(st.firewall_rules||[]).length)h+='<div class="si w">No rules</div>';h+='</div>';
+  h+='<div class="ss"><div class="sl">⚙️ Services ('+((st.services||[]).length)+')</div>';
+  (st.services||[]).forEach(s=>{const c=s.running&&s.enabled?'ok':'w';h+='<div class="si '+c+'">'+s.name+': '+(s.running?'● running':'○ stopped')+', '+(s.enabled?'enabled':'disabled')+'</div>';});h+='</div>';
+  h+='<div class="ss"><div class="sl">📁 Files</div>';
+  (st.file_permissions||[]).forEach(f=>{h+='<div class="si">'+f.path+' → '+f.owner+':'+f.group+' ['+f.mode+']</div>';});h+='</div>';
+  if(st.ssh_config){const s=st.ssh_config;h+='<div class="ss"><div class="sl">🔐 SSH</div><div class="si">Port:'+s.port+' Root:'+s.permit_root_login+' PassAuth:'+s.password_authentication+'</div></div>';}
+  if(st.logging_config){const l=st.logging_config;h+='<div class="ss"><div class="sl">📋 Logging</div><div class="si '+(l.access_log?'ok':'w')+'">Access:'+(l.access_log?'✓':'✗')+' Error:'+(l.error_log?'✓':'✗')+' Auth:'+(l.auth_log?'✓':'✗')+' Audit:'+(l.audit_log?'✓':'✗')+'</div></div>';}
+  const ev=Object.entries(st.environment_variables||{});
+  if(ev.length){h+='<div class="ss"><div class="sl">🌍 Env Vars</div>';ev.forEach(([k,val])=>{h+='<div class="si">'+k+'='+val+'</div>';});h+='</div>';}
+  v.innerHTML=h;
+}
+</script>
+</body>
+</html>

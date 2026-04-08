@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+server.log
+test_project.py
+test_gemini.py
+run_easy_test.py
+.env

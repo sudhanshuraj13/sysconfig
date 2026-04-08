@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sysconfig-env"
+version = "1.0.0"
+description = "SysConfig - Linux Server Configuration Agent Environment"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "pydantic>=2.0.0",
+    "openai>=1.12.0",
+    "requests>=2.31.0",
+    "openenv-core>=0.2.0"
+]
+
+[project.scripts]
+openenv-server = "uvicorn server.app:app --host 0.0.0.0 --port 7860"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
