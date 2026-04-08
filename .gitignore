@@ -7,3 +7,7 @@ test_project.py
 test_gemini.py
 run_easy_test.py
 .env
+.venv/
+*.egg-info/
+build/
+dist/

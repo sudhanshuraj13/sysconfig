@@ -7,7 +7,7 @@ name = "sysconfig-env"
 version = "1.0.0"
 description = "SysConfig - Linux Server Configuration Agent Environment"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn>=0.29.0",
@@ -18,9 +18,13 @@ dependencies = [
 ]
 
 [project.scripts]
-openenv-server = "uvicorn server.app:app --host 0.0.0.0 --port 7860"
+server = "server.app:main"
 
 [project.optional-dependencies]
 dev = [
     "pytest",
 ]
+
+[tool.setuptools]
+packages = ["server"]
+py-modules = ["env", "models", "tasks", "inference"]
