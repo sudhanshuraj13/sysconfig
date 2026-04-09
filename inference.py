@@ -18,10 +18,33 @@ API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:7860")
 MODEL_NAME = os.environ.get("MODEL_NAME", "gemma-4-31b-it")
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 
-TASKS = ["basic_webserver", "multi_service", "security_hardening"]
+DEFAULT_TASKS = ["basic_webserver", "multi_service", "security_hardening"]
 RUN_SINGLE = os.environ.get("RUN_TASK", "")
 
 REQUEST_TIMEOUT = 30  # seconds for HTTP requests
+
+
+class EnvRequestError(RuntimeError):
+    """Raised when the env API returns an error we want to surface cleanly."""
+
+
+def _safe_json(response: requests.Response) -> dict:
+    """Parse JSON responses defensively so bad payloads don't crash inference."""
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        snippet = response.text[:300].strip()
+        raise EnvRequestError(
+            f"Non-JSON response from {response.request.method} {response.url}: "
+            f"status={response.status_code}, body={snippet or '<empty>'}"
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise EnvRequestError(
+            f"Unexpected JSON payload from {response.request.method} {response.url}: "
+            f"expected object, got {type(payload).__name__}"
+        )
+    return payload
 
 SYSTEM_PROMPT = (
     "You are an expert Linux sysadmin. You configure servers by calling the provided tools. "
@@ -330,6 +353,7 @@ def _request_with_retry(method: str, url: str, max_retries: int = 3, **kwargs) -
     kwargs.setdefault("timeout", REQUEST_TIMEOUT)
     last_exc = None
     for attempt in range(max_retries):
+        resp = None
         try:
             resp = requests.request(method, url, **kwargs)
             resp.raise_for_status()
@@ -343,29 +367,63 @@ def _request_with_retry(method: str, url: str, max_retries: int = 3, **kwargs) -
                 last_exc = e
                 continue
             elif 400 <= resp.status_code < 500:
-                raise  # Client errors shouldn't be retried
-            last_exc = e
+                body = resp.text[:300].strip() if resp is not None else ""
+                raise EnvRequestError(
+                    f"{method} {url} failed with status={resp.status_code}. "
+                    f"Body: {body or '<empty>'}"
+                ) from e
+            body = resp.text[:300].strip() if resp is not None else ""
+            last_exc = EnvRequestError(
+                f"{method} {url} failed with status={resp.status_code}. "
+                f"Body: {body or '<empty>'}"
+            )
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            last_exc = e
+        except requests.exceptions.RequestException as e:
             last_exc = e
         wait = min(30, 3 * (attempt + 1))
         print(f"  Request failed (attempt {attempt + 1}/{max_retries}): {last_exc}, retrying in {wait}s...", flush=True)
         time.sleep(wait)
-    raise last_exc
+    raise EnvRequestError(f"{method} {url} failed after {max_retries} attempts: {last_exc}") from last_exc
+
+
+def discover_tasks() -> list[str]:
+    """Fetch available task ids from the env server, with a safe fallback."""
+    if RUN_SINGLE:
+        return [RUN_SINGLE]
+
+    try:
+        resp = _request_with_retry("GET", f"{API_BASE_URL}/tasks", max_retries=2)
+        payload = _safe_json(resp)
+        tasks = payload.get("tasks", [])
+        task_ids = [
+            task.get("id")
+            for task in tasks
+            if isinstance(task, dict) and isinstance(task.get("id"), str) and task.get("id")
+        ]
+        if task_ids:
+            print(f"Discovered tasks from environment: {task_ids}", flush=True)
+            return task_ids
+        print("  WARNING: /tasks returned no usable ids, using built-in defaults.", flush=True)
+    except Exception as e:
+        print(f"  WARNING: Could not discover tasks from environment: {e}", flush=True)
+
+    return list(DEFAULT_TASKS)
 
 
 def env_reset(task_id: str) -> dict:
     resp = _request_with_retry("POST", f"{API_BASE_URL}/reset", json={"task_id": task_id})
-    return resp.json()
+    return _safe_json(resp)
 
 
 def env_step(action: str) -> dict:
     resp = _request_with_retry("POST", f"{API_BASE_URL}/step", json={"action": action})
-    return resp.json()
+    return _safe_json(resp)
 
 
 def env_grade() -> dict:
     resp = _request_with_retry("GET", f"{API_BASE_URL}/grade")
-    return resp.json()
+    return _safe_json(resp)
 
 
 def format_state_for_llm(obs: dict) -> str:
@@ -518,7 +576,8 @@ def main():
 
     client = get_client()
     results = []
-    tasks = [RUN_SINGLE] if RUN_SINGLE else TASKS
+    tasks = discover_tasks()
+    print(f"Running tasks: {tasks}", flush=True)
 
     for task_id in tasks:
         try:
