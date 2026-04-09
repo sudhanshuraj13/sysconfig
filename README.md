@@ -71,19 +71,21 @@ docker run -p 7860:7860 sysconfig-env
 ## Running Inference
 
 ```bash
-export OPENAI_BASE_URL="https://your-endpoint/v1"
-export OPENAI_API_KEY="your-key"
+export API_BASE_URL="https://your-litellm-proxy/v1"
+export API_KEY="your-proxy-key"
 export MODEL_NAME="Qwen/Qwen2.5-72B-Instruct"
-export API_BASE_URL="http://localhost:7860"
+export ENV_API_BASE_URL="http://localhost:7860"
 python inference.py
 ```
 
 ## Environment Variables
 
-| Variable          | Description          | Default                     |
-| ----------------- | -------------------- | --------------------------- |
-| `OPENAI_BASE_URL` | LLM API endpoint     | `https://api.openai.com/v1` |
-| `OPENAI_API_KEY`  | API key              | `HF_TOKEN` value            |
-| `MODEL_NAME`      | Model to use         | `Qwen/Qwen2.5-72B-Instruct` |
-| `API_BASE_URL`    | SysConfig server URL | `http://localhost:7860`     |
-| `HF_TOKEN`        | HuggingFace token    | -                           |
+| Variable           | Description                       | Default                     |
+| ------------------ | --------------------------------- | --------------------------- |
+| `API_BASE_URL`     | LLM proxy endpoint                | `https://api.openai.com/v1` |
+| `API_KEY`          | LLM proxy API key                 | falls back to `OPENAI_API_KEY` |
+| `MODEL_NAME`       | Model to use                      | `Qwen/Qwen2.5-72B-Instruct` |
+| `ENV_API_BASE_URL` | SysConfig server URL              | `http://localhost:7860`     |
+| `OPENAI_BASE_URL`  | Legacy fallback for LLM endpoint  | -                           |
+| `OPENAI_API_KEY`   | Legacy fallback for LLM API key   | `HF_TOKEN` value            |
+| `HF_TOKEN`         | Legacy fallback for LLM API key   | -                           |

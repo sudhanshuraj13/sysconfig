@@ -14,9 +14,19 @@ import traceback
 import requests
 from openai import OpenAI
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:7860")
+LLM_BASE_URL = os.environ.get(
+    "API_BASE_URL",
+    os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+)
+LLM_API_KEY = os.environ.get(
+    "API_KEY",
+    os.environ.get("OPENAI_API_KEY", os.environ.get("HF_TOKEN", "")),
+)
+ENV_API_BASE_URL = os.environ.get(
+    "ENV_API_BASE_URL",
+    os.environ.get("SYS_CONFIG_API_BASE_URL", "http://localhost:7860"),
+)
 MODEL_NAME = os.environ.get("MODEL_NAME", "gemma-4-31b-it")
-HF_TOKEN = os.environ.get("HF_TOKEN", "")
 
 DEFAULT_TASKS = ["basic_webserver", "multi_service", "security_hardening"]
 RUN_SINGLE = os.environ.get("RUN_TASK", "")
@@ -319,21 +329,16 @@ def tool_call_to_command(name: str, args: dict) -> str:
 
 
 def get_client() -> OpenAI:
-    base_url = os.environ.get(
-        "OPENAI_BASE_URL",
-        "https://generativelanguage.googleapis.com/v1beta/openai/",
-    )
-    api_key = os.environ.get("OPENAI_API_KEY", "")
-    return OpenAI(base_url=base_url, api_key=api_key)
+    return OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
 
 
 def wait_for_server(max_wait: int = 120) -> bool:
     """Wait for the env server to become reachable. Returns True if healthy."""
-    print(f"Waiting for environment server at {API_BASE_URL} ...", flush=True)
+    print(f"Waiting for environment server at {ENV_API_BASE_URL} ...", flush=True)
     start = time.time()
     while time.time() - start < max_wait:
         try:
-            resp = requests.get(f"{API_BASE_URL}/health", timeout=5)
+            resp = requests.get(f"{ENV_API_BASE_URL}/health", timeout=5)
             if resp.status_code == 200:
                 print(f"  Server is ready (took {time.time() - start:.1f}s)", flush=True)
                 return True
@@ -393,7 +398,7 @@ def discover_tasks() -> list[str]:
         return [RUN_SINGLE]
 
     try:
-        resp = _request_with_retry("GET", f"{API_BASE_URL}/tasks", max_retries=2)
+        resp = _request_with_retry("GET", f"{ENV_API_BASE_URL}/tasks", max_retries=2)
         payload = _safe_json(resp)
         tasks = payload.get("tasks", [])
         task_ids = [
@@ -412,17 +417,17 @@ def discover_tasks() -> list[str]:
 
 
 def env_reset(task_id: str) -> dict:
-    resp = _request_with_retry("POST", f"{API_BASE_URL}/reset", json={"task_id": task_id})
+    resp = _request_with_retry("POST", f"{ENV_API_BASE_URL}/reset", json={"task_id": task_id})
     return _safe_json(resp)
 
 
 def env_step(action: str) -> dict:
-    resp = _request_with_retry("POST", f"{API_BASE_URL}/step", json={"action": action})
+    resp = _request_with_retry("POST", f"{ENV_API_BASE_URL}/step", json={"action": action})
     return _safe_json(resp)
 
 
 def env_grade() -> dict:
-    resp = _request_with_retry("GET", f"{API_BASE_URL}/grade")
+    resp = _request_with_retry("GET", f"{ENV_API_BASE_URL}/grade")
     return _safe_json(resp)
 
 
