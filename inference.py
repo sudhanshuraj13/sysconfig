@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
+import traceback
 
 import requests
 from openai import OpenAI
@@ -18,6 +20,8 @@ HF_TOKEN = os.environ.get("HF_TOKEN", "")
 
 TASKS = ["basic_webserver", "multi_service", "security_hardening"]
 RUN_SINGLE = os.environ.get("RUN_TASK", "")
+
+REQUEST_TIMEOUT = 30  # seconds for HTTP requests
 
 SYSTEM_PROMPT = (
     "You are an expert Linux sysadmin. You configure servers by calling the provided tools. "
@@ -300,21 +304,67 @@ def get_client() -> OpenAI:
     return OpenAI(base_url=base_url, api_key=api_key)
 
 
+def wait_for_server(max_wait: int = 120) -> bool:
+    """Wait for the env server to become reachable. Returns True if healthy."""
+    print(f"Waiting for environment server at {API_BASE_URL} ...", flush=True)
+    start = time.time()
+    while time.time() - start < max_wait:
+        try:
+            resp = requests.get(f"{API_BASE_URL}/health", timeout=5)
+            if resp.status_code == 200:
+                print(f"  Server is ready (took {time.time() - start:.1f}s)", flush=True)
+                return True
+        except requests.exceptions.ConnectionError:
+            pass
+        except requests.exceptions.Timeout:
+            pass
+        except Exception:
+            pass
+        time.sleep(2)
+    print(f"  WARNING: Server not reachable after {max_wait}s", flush=True)
+    return False
+
+
+def _request_with_retry(method: str, url: str, max_retries: int = 3, **kwargs) -> requests.Response:
+    """Make an HTTP request with retry logic and timeouts."""
+    kwargs.setdefault("timeout", REQUEST_TIMEOUT)
+    last_exc = None
+    for attempt in range(max_retries):
+        try:
+            resp = requests.request(method, url, **kwargs)
+            resp.raise_for_status()
+            return resp
+        except requests.exceptions.HTTPError as e:
+            # 4xx errors are not retryable (except 429)
+            if resp.status_code == 429:
+                wait = min(30, 5 * (attempt + 1))
+                print(f"  Rate limited (429), retrying in {wait}s...", flush=True)
+                time.sleep(wait)
+                last_exc = e
+                continue
+            elif 400 <= resp.status_code < 500:
+                raise  # Client errors shouldn't be retried
+            last_exc = e
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            last_exc = e
+        wait = min(30, 3 * (attempt + 1))
+        print(f"  Request failed (attempt {attempt + 1}/{max_retries}): {last_exc}, retrying in {wait}s...", flush=True)
+        time.sleep(wait)
+    raise last_exc
+
+
 def env_reset(task_id: str) -> dict:
-    resp = requests.post(f"{API_BASE_URL}/reset", json={"task_id": task_id})
-    resp.raise_for_status()
+    resp = _request_with_retry("POST", f"{API_BASE_URL}/reset", json={"task_id": task_id})
     return resp.json()
 
 
 def env_step(action: str) -> dict:
-    resp = requests.post(f"{API_BASE_URL}/step", json={"action": action})
-    resp.raise_for_status()
+    resp = _request_with_retry("POST", f"{API_BASE_URL}/step", json={"action": action})
     return resp.json()
 
 
 def env_grade() -> dict:
-    resp = requests.get(f"{API_BASE_URL}/grade")
-    resp.raise_for_status()
+    resp = _request_with_retry("GET", f"{API_BASE_URL}/grade")
     return resp.json()
 
 
@@ -372,7 +422,12 @@ def run_task(client: OpenAI, task_id: str) -> dict:
     """Run a single task and return the result."""
     print(f"\n[START] task={task_id}", flush=True)
 
-    obs = env_reset(task_id)
+    try:
+        obs = env_reset(task_id)
+    except Exception as e:
+        print(f"[END] task={task_id} score=0.0 (reset failed: {e})", flush=True)
+        return {"task_id": task_id, "score": 0.0, "steps_taken": 0}
+
     max_steps = obs.get("max_steps", 15)
     action_history: list[str] = []
     failed_actions: list[str] = []
@@ -407,7 +462,14 @@ def run_task(client: OpenAI, task_id: str) -> dict:
             repeat_count = 0
 
         action_history.append(action)
-        result = env_step(action)
+
+        try:
+            result = env_step(action)
+        except Exception as e:
+            print(f"[STEP] step={step_num} action={action!r} ERROR: {e}", flush=True)
+            failed_actions.append(f"{action} (network error)")
+            continue
+
         reward = result.get("reward", 0.0)
         done = result.get("done", False)
         info = result.get("info", {})
@@ -429,8 +491,14 @@ def run_task(client: OpenAI, task_id: str) -> dict:
         if done or reward >= 0.99:
             break
 
-    grade = env_grade()
-    final_score = grade.get("score", 0.0)
+    try:
+        grade = env_grade()
+        final_score = grade.get("score", 0.0)
+    except Exception as e:
+        print(f"  Grading failed: {e}", flush=True)
+        final_score = 0.0
+        grade = {}
+
     print(f"[END] task={task_id} score={final_score}", flush=True)
 
     return {
@@ -441,12 +509,24 @@ def run_task(client: OpenAI, task_id: str) -> dict:
 
 
 def main():
+    # Wait for the env server to be ready before starting
+    server_ok = wait_for_server(max_wait=120)
+    if not server_ok:
+        print("ERROR: Environment server not reachable. Exiting.", flush=True)
+        # Still try to proceed — the evaluator might bring it up later
+        # Don't sys.exit here; let it fail gracefully per-task instead
+
     client = get_client()
     results = []
     tasks = [RUN_SINGLE] if RUN_SINGLE else TASKS
 
     for task_id in tasks:
-        result = run_task(client, task_id)
+        try:
+            result = run_task(client, task_id)
+        except Exception as e:
+            print(f"[END] task={task_id} score=0.0 (unhandled error: {e})", flush=True)
+            traceback.print_exc()
+            result = {"task_id": task_id, "score": 0.0, "steps_taken": 0}
         results.append(result)
 
     print("\n=== Final Results ===")
@@ -458,4 +538,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"FATAL ERROR: {e}", flush=True)
+        traceback.print_exc()
+        sys.exit(1)

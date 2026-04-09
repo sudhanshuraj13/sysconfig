@@ -16,9 +16,16 @@ from env import SysConfigEnv
 app = FastAPI(title="SysConfig Environment", version="1.0.0")
 env = SysConfigEnv()
 
-# Serve static files (frontend assets)
-STATIC_DIR = Path(__file__).parent.parent / "static"
-if STATIC_DIR.exists():
+# Serve static files (frontend assets) — check multiple possible locations
+_here = Path(__file__).parent
+_candidates = [_here / "static", _here.parent / "static"]
+STATIC_DIR = None
+for _d in _candidates:
+    if _d.exists():
+        STATIC_DIR = _d
+        break
+
+if STATIC_DIR is not None:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
@@ -33,9 +40,10 @@ class StepRequest(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 def root():
     """Serve the frontend demo page."""
-    index_file = STATIC_DIR / "index.html"
-    if index_file.exists():
-        return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
+    if STATIC_DIR is not None:
+        index_file = STATIC_DIR / "index.html"
+        if index_file.exists():
+            return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
     return HTMLResponse(content="<h1>SysConfig</h1><p>Visit <a href='/docs'>/docs</a></p>")
 
 
@@ -52,14 +60,21 @@ def reset(req: ResetRequest = None) -> dict[str, Any]:
         return obs
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
 
 
 @app.post("/step")
 def step(req: StepRequest) -> dict[str, Any]:
-    result = env.step(req.action)
-    if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
-    return result
+    try:
+        result = env.step(req.action)
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
 
 
 @app.get("/state")
