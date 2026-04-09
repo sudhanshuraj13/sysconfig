@@ -9,5 +9,5 @@ COPY . .
 
 EXPOSE 7860
 
-# Run from /app where all modules (env.py, models.py, tasks.py) live
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+# Use the canonical package entrypoint.
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]

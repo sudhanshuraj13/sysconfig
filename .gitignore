@@ -3,11 +3,18 @@ __pycache__/
 *.pyo
 *.log
 server.log
+.env
+.venv/
+
+# Local scratch and validation scripts
 test_project.py
 test_gemini.py
 run_easy_test.py
-.env
-.venv/
 *.egg-info/
 build/
 dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
